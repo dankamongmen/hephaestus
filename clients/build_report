@@ -10,6 +10,7 @@ TMPDIR="`dirname $ITINERARY`"
 
 [ $# -eq 6 ] || usageerr
 
+# FIXME we're not in subversion anymore! get release ver from common defs!
 FROM="Hephaestus-`svnversion .` autobuilder <dank@qemfd.net>"
 
 REPO="$5"

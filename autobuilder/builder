@@ -116,6 +116,7 @@ autobuild () {
 
 echo "*Awwwwww, shit!*"
 echo "Hephaestus builder started at `date`"
+# FIXME we're not in subversion anymore! get release ver from common defs!
 echo "Image $IMAGE, revision `svnversion .`"
 echo "Running as user $USER on host `hostname`"
 echo -e "\nMy known SSH hosts are in $HOME/.ssh/known_hosts"
