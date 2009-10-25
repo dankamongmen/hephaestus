@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+
+set -e || { echo "Couldn't set -e" >&2 ; exit 1 ; }
+set -o nounset || { echo "Couldn't set -o nounset" >&2 ; exit 1 ; }
+set -o pipefail || echo "Warning: couldn't set -o pipefail" >&2
+
+umask 0002
+
+NEWSHOST=news.research.sys
+ITINERARYHOST=svn.research.sys
+
+usage () { echo "usage: $0 dir sshkey method://svnhost" ; }
+
+usageerr () { usage >&2 ; exit 1 ; }
+
+# Don't want to possibly use a preexisting SSH agent
+unset SSH_AUTH_SOCK
+eval `ssh-agent -s`
+
+# Don't want nounset to blow up in exithandle if there's been no locking done
+TMPFILE=""
+BUILDLOC=""
+
+destroy () {
+	for i in $* ; do
+		[ ! -x "`which chflags 2> /dev/null`" ] || sudo chflags -R noschg "$i"
+		sudo rm -rf "$i"
+	done
+}
+
+exithandle () {
+	trap "" EXIT
+	echo "Cleaning up..."
+	destroy "$BUILDLOC" "$TMPFILE" || true
+	eval `ssh-agent -k`
+	echo "Exited `date`"
+}
+
+trap exithandle EXIT SIGINT SIGHUP
+
+set | grep TMPDIR > /dev/null || export TMPDIR=$HOME/tmp
+
+export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
+
+XMLSTARLET=`which xml` || XMLSTARLET="`which xmlstarlet`" || \
+ { echo "Couldn't find xml(1) as xml or xmlstarlet, exiting." >&2 ; exit 1 ; }
+
+HOOKDIR=hooks
+DEFAULTHOOK=default
+
+[ $# -eq 3 ] || usageerr
+
+IMAGE="`uname -r`-`uname -m`"
+
+cd "$1"
+ssh-add "$2"
+echo "Loaded key at $2"
+METHOD="$3"
+
+TMPFILE="`mktemp -t \`basename $0\`.XXXXXX`"
+BUILDLOC="`mktemp -d -t \`basename $0\`.XXXXXX`"
+
+buildcheckout () {
+	local BUILDHOOK=""
+	local RET
+
+	[ $# -eq 1 ] || { echo "Parameter error: need path" >&2 ; return 1 ; }
+	BPATH="$1"
+	[ "${BPATH:0:1}" = "/" ] || BPATH="/$BPATH" 
+	[ "$BPATH" != "/" ] || BPATH="/$NAME"
+	[ ! -r "$BUILDLOC/$NAME-$REV$BPATH/Makefile" ] || BUILDHOOK="`which make`"
+	[ ! -r "$BUILDLOC/$NAME-$REV$BPATH/GNUmakefile" ] || BUILDHOOK="`which gmake || which make`"
+	[ ! -x "$HOOKDIR/$NAME" ] || BUILDHOOK="`pwd`/$HOOKDIR/$NAME"
+	[ -n "$BUILDHOOK" ] || { echo "No build mechanism found in $BUILDLOC/$NAME-$REV$BPATH" >&2 ; return 0 ; }
+	[ -x "$BUILDHOOK" ] || { pwd >&2 ; echo "Couldn't run $BUILDHOOK" >&2 ; return 1 ; }
+	echo "Running $BUILDHOOK in $BUILDLOC/$NAME-$REV$BPATH..."
+	pushd "$BUILDLOC/$NAME-$REV$BPATH" > /dev/null
+	set +e
+	 # FIXME use dig to extract our IP via -x lookup once it's available
+	 #sudo jail -u "$USER" / `hostname` `ifconfig | grep inet | head -n1 | cut -d\  -f2` /bin/sh -c "cd $BUILDLOC/$NAME-$REV$BPATH && time -p $BUILDHOOK"
+	 time -p "$BUILDHOOK"
+	 RET=$?
+	 # Kill processes within the jail (who knows what Makefiles wrought)
+	 #ps ax -opid,stat | grep J | cut -f1 | sudo xargs -t kill -9
+	set -e
+	popd > /dev/null
+	return $RET
+}
+
+rmcheckout () {
+	echo "Removing $BUILDLOC/$NAME-$REV"
+	pushd "$BUILDLOC" > /dev/null
+	destroy "$NAME-$REV"
+	popd > /dev/null
+}
+
+checkoutbranch () {
+	[ $# -eq 1 ] || { echo "Parameter error: need path" >&2 ; return 1 ; }
+	echo "Checking out $METHOD$REPO$1 to $BUILDLOC/$NAME-$REV ($MSGID)"
+	[ ! -e "$BUILDLOC/$NAME-$REV" ] || rm -rf "$BUILDLOC/$NAME-$REV"
+	mkdir "$BUILDLOC/$NAME-$REV" || return 1
+	pushd "$BUILDLOC/$NAME-$REV" > /dev/null || return 1
+	svn co -r"$REV" "$METHOD$REPO$1" > /dev/null
+	RET=$?
+	popd > /dev/null || return 1
+	return $RET
+}
+
+autobuild () {
+	checkoutbranch "$1" && buildcheckout "`basename $1`"
+	local RET=$?
+	rmcheckout
+	echo "Done with $NAME-$REV"
+	return $RET
+}
+
+echo "*Awwwwww, shit!*"
+echo "Hephaestus builder started at `date`"
+echo "Image $IMAGE, revision `svnversion .`"
+echo "Running as user $USER on host `hostname`"
+echo -e "\nMy known SSH hosts are in $HOME/.ssh/known_hosts"
+echo "It currently contains:"
+cat $HOME/.ssh/known_hosts
+echo -e "\nMy SSH agent is at $SSH_AUTH_SOCK"
+echo "It currently contains:"
+ssh-add -L
+
+while true ; do
+	ssh -n $ITINERARYHOST get_build `hostname` "$IMAGE" | tee "$TMPFILE"
+
+	# My use of XPATH is pretty janky here FIXME
+	XML=""
+	for CMD in commit ; do
+		XML="`$XMLSTARLET sel -t -m /$CMD -c . $TMPFILE`"
+		[ -z "$XML" ] || break
+	done
+	[ -n "$XML" ] || { echo "Couldn't find command in $TMPFILE, exiting" >&2 ; exit 1 ; }
+	case "$CMD" in
+	  commit)
+		SCHED="`$XMLSTARLET sel -t -v //schedtime $TMPFILE`"
+		REPO="`$XMLSTARLET sel -t -v //repository $TMPFILE`"
+		REV="`$XMLSTARLET sel -t -v //revision $TMPFILE`"
+		MSGID="`$XMLSTARLET sel -t -v //inreplyto $TMPFILE`"
+		BUILDPATH="`$XMLSTARLET sel -t -v //path $TMPFILE`"
+		# should check this with an XML well-formedness req FIXME
+		if [ -n "$MSGID" -a -n "$REPO" -a -n "$REV" -a -n "$BUILDPATH" ] ; then
+			NAME="`basename $REPO`"
+			BUILDTMP="`mktemp -t \`basename $0\`.XXXXXX`"
+			RET=0
+			autobuild "$BUILDPATH" >> "$BUILDTMP" 2>&1 || RET=$?
+	 		ssh $NEWSHOST -- build_report "$MSGID" "$RET" "$BUILDPATH" "$IMAGE" "$NAME" "$REV" < "$BUILDTMP"
+			destroy "$BUILDTMP"
+	  	else
+			echo "Poorly-formed build request, exiting." >&2
+			exit 1
+		fi
+	  ;;
+	  *)
+		# Do not update the itinerary! Exit, leaving it for a new ver.
+		echo -e "Unknown request, exiting." >&2
+		exit 1
+	  ;;
+	esac
+done

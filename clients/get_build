@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+. /usr/local/etc/hephaestus/common || exit 1
+
+# Builderid is typically a hostname. image is uname -r output, and should map
+# to an entry in the image definitions file.
+usage () { echo "usage: $0 builderid image" ; }
+
+usageerr () { usage >&2 ; return 1 ; }
+
+TMPDIR="`dirname $ITINERARY`"
+
+[ $# -eq 2 ] || usageerr
+BUILDERID="$1"
+IMAGE="$2"
+
+# Arguments: itinerary file, builderid
+# Output: <commit> element to use, or no output if nothing's available
+get_first_entry_locked () {
+	echo "Aquiring build command for $2" >&2
+	# If one's already marked with our buildid, use it -- we were stopped.
+	# In order to send this to one line on stdout and also exit on no output
+	# (xmlstarlet will return a 0, curses), we very cleverly pipe to xml
+	# c14n -- empty data is not well-formed; a pipeline failure ensues w00t!
+	if "$XML" ed -d "//build[not(result)]" -d "//build[result/retcode]" "$1" | "$XML" sel -B -t -c "//commit[build/result/buildhost='$2']" 2> /dev/null | "$XML" c14n 2> /dev/null ; then
+		return 0
+	fi
+	# Otherwise, generate our output line, then update the itinerary. If
+	# there are no unclaimed builds scheduled, error out.
+	TMP=`mktemp -t \`basename $0\`.XXXXXX`
+	chmod 0644 "$TMP"
+	"$XML" ed -d "//build[result]" -d "//build[image!='$3']" -d "//commit[not(build)]" "$1" | "$XML" sel -B -t -c "//commit[1]" 2> /dev/null | "$XML" c14n > "$TMP" 2> /dev/null || { rm -f "$TMP" ; return 1 ; }
+	local MSGID=`"$XML" sel -t -v "//inreplyto" "$TMP"`
+	local SVNPATH=`"$XML" sel -t -v "//path" "$TMP"`
+	[ -n "$MSGID" -a -n "$SVNPATH" ] || { rm -f "$TMP" ; return 1 ; } 
+	"$XML" ed -s "//commit[inreplyto='$MSGID']/build[path='$SVNPATH' and image='$IMAGE']" -t elem -n result -v "" \
+	 -s "//commit[inreplyto='$MSGID']/build[path='$SVNPATH' and image='$IMAGE']/result" -t elem -n buildhost -v "$BUILDERID" \
+	  -s "//commit[inreplyto='$MSGID']/build[path='$SVNPATH' and image='$IMAGE']/result" -t elem -n starttime -v "`date '+%Y-%m-%dT%H:%M:%S'`" "$1" > "$TMP" || { rm -f "$TMP" ; return 1 ; }
+	#"$XML" val -e -r "$SCHEMA_ITINERARY" "$TMP" > /dev/null || { rm -f "$TMP" ; return 1 ; }
+	mv "$TMP" "$1" || { rm -f "$TMP" ; return 1 ; }
+	# We've updated the itinerary. Go ahead and output our claimed commit.
+	"$XML" ed -d "//build[path!='$SVNPATH' or image!='$IMAGE']" -d "//commit[not(build)]" "$1" | "$XML" sel -B -t -c "//commit[inreplyto='$MSGID']" | "$XML" c14n
+}
+
+get_first_entry () {
+	spin_on_dotlock "$1" || return 1
+	get_first_entry_locked "$@" || { unlock_dotlock "$1" ; return 1 ; }
+	unlock_dotlock "$1" || return 1
+}
+
+while ! get_first_entry "$ITINERARY" "$BUILDERID" "$IMAGE" ; do
+	inotifywait -e modify -t $((RANDOM % 10 * 60 + 60)) -qq "$ITINERARY" || true
+done

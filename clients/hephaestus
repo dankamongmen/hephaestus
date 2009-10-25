@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+. `printenv COMMON || echo /usr/local/etc/hephaestus/common` || exit 1
+
+usage () { echo "usage: $0" ; }
+usageerr () { usage >&2 ; return 1 ; }
+
+[ $# -eq 0 ] || usageerr
+
+DAEMON=`which daemon` || { echo "Couldn't find daemon(1) on path" >&2 ; exit 1 ; }
+
+PIDFILE=$HEPHDIR/hephaestus.pid
+if [ -e $PIDFILE ] ; then
+	echo -n "$PIDFILE exists, containing: "
+	cat $PIDFILE
+	echo
+	# Check to see if a process is actually running; otherwise, run
+	if [ -d /proc/`cat $PIDFILE` ] ; then
+		echo "Pidfile at $PIDFILE specifies running process `cat $PIDFILE`, exiting."
+		exit 0 # exit normally
+	fi
+fi
+echo "Checked pidfile at $PIDFILE"
+
+WORKDIR="`realpath \`dirname $0\``"
+echo "Changing directory to `pwd`"
+inoticoming --logfile "$LOGFILE" --pid-file "$PIDFILE" \
+	--initialsearch "$HEPHDIR/commits" \
+	--chdir "$WORKDIR" --stdout-to-log --stderr-to-log \
+	"$DAEMON" -l "$LOGFILE" -b "$LOGFILE" -- \
+	"$WORKDIR/hephaestus_build" {} \; \
+	|| { echo "Exiting on inoticoming error $?" >&2 ; false ; }

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+. /usr/local/etc/hephaestus/common || exit 1
+
+usage () { echo "usage: $0 repository-uri revision" ; }
+
+usageerr () { usage >&2 ; return 1 ; }
+
+[ $# -eq 2 ] || usageerr
+
+REPO="$1"
+REV="$2"
+
+SCHEDDIR="$HEPHDIR/commits/"
+
+if [ -e "$SCHEDDIR" ] ; then
+	[ -d "$SCHEDDIR" ] || { echo "Will not attempt to autobuild $REPO $REV" >&2 ; exit 0 ; }
+else
+	mkdir -m 2775 -p "$SCHEDDIR"
+fi
+
+touch "$SCHEDDIR/`basename $REPO`.$REV"

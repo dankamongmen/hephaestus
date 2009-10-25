@@ -1,0 +1,142 @@
+<?xml version="1.0"?>
+<xsl:stylesheet version="1.0"
+	xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+	xmlns:xlink="http://www.w3.org/1999/xlink"
+	xmlns:fn="http://www.w3.org/2005/xpath-functions"
+	xmlns="http://www.w3.org/1999/xhtml">
+
+ <xsl:template name="pageheader">
+  <table border="1">
+   <tr>
+    <td align="right" valign="top" width="100%">
+     <span style="color: green;">
+      <b>THE HEPHAESTUS AUTOBUILDER</b>
+      (report bugs to nick black <a href="mailto:dank@qemfd.net">(dank@qemfd.net)</a>)
+     </span>
+    </td>
+    <td rowspan="2">
+     <a>
+      <xsl:attribute name="href">
+       http://www.artic.edu/aic/collections/modern/highlight_item?acc=1956.338&amp;page=1
+      </xsl:attribute>
+      <img src="/images/rock.jpeg" alt="Peter Blume's 'The Rock'" width="150" height="133" border="0"/>
+     </a>
+    </td>
+   </tr>
+   <tr><td>
+    <a href="http://www.yonkis.com/w.php?id=234200712145.jpg">
+     <img src="/images/mural.jpeg" alt="Evolution mural featuring many scientific inaccuracies :/" style="display:block;" width="100%" height="110" border="0"/>
+    </a>
+   </td></tr>
+   <tr>
+    <td colspan="2">
+     <span style="color: green;"><b>
+      <a href="itinerary">Itinerary View</a>
+      <xsl:text> -=- </xsl:text>
+      <a href="stats">Statistics View</a>
+      <xsl:text> -=- </xsl:text>
+      <a href="http://wiki.research.sys/mediawiki/index.php/Main_Page">Prowiki</a>
+      <xsl:text> -=- </xsl:text>
+      <a href="http://svn.research.sys/mediawiki/index.php/Main_Page">WOPRwiki</a>
+      <xsl:text> -=- </xsl:text>
+      <a href="http://bugs.research.sys/bugzilla/">Bugzilla</a>
+     </b></span>
+    </td>
+   </tr>
+  </table>
+ </xsl:template>
+
+ <xsl:template name="sectionbreak">
+  <tr><td colspan="4"><img src="/images/mural.jpeg" width="100%" height="20"/></td></tr>
+ </xsl:template>
+
+ <xsl:template match="retcode">
+  <td align="right">
+   <xsl:value-of select="."/>
+   <br/>
+   <a>
+    <xsl:attribute name="href"><xsl:value-of select="@xlink:href"/></xsl:attribute> (Log)
+   </a>
+  </td>
+ </xsl:template>
+
+ <xsl:template match="author">
+  <td align="right">
+   <a>
+    <xsl:attribute name="href">users?<xsl:value-of select="."/></xsl:attribute>
+    <xsl:value-of select="."/>
+   </a>
+  </td>
+ </xsl:template>
+
+ <xsl:template match="log">
+  <br/><i><xsl:value-of select="."/></i>
+ </xsl:template>
+
+ <xsl:template match="build">
+  <tr>
+   <xsl:if test="result[retcode=0]">
+    <xsl:attribute name="bgcolor">lightgreen</xsl:attribute>
+   </xsl:if>
+   <xsl:if test="result[retcode!=0] and not(result[retcode=255])">
+    <xsl:attribute name="bgcolor">cd5c5c</xsl:attribute>
+   </xsl:if>
+   <xsl:if test="result[retcode=255]">
+    <xsl:attribute name="bgcolor">lightgrey</xsl:attribute>
+   </xsl:if>
+   <xsl:if test="not(result)">
+    <xsl:attribute name="bgcolor">lightblue</xsl:attribute>
+   </xsl:if>
+   <xsl:if test="result[not(retcode)]">
+    <xsl:attribute name="bgcolor">yellow</xsl:attribute>
+   </xsl:if>
+   <td>
+    <xsl:if test="not(result/retcode)">
+     <xsl:attribute name="colspan">2</xsl:attribute>
+    </xsl:if>
+    <a>
+     <xsl:attribute name="href">
+      /cgi-bin/viewvc.cgi<xsl:value-of select="path"/>.tar.gz?view=tar&amp;root=<xsl:value-of select="substring-after(../repository,'/svn/')"/>&amp;revision=<xsl:value-of select="../revision"/>
+     </xsl:attribute>
+     <img src="/images/tarball.png" style="vertical-align:bottom;" alt="Source tarball" height="10" width="10"/>
+    </a>
+    <xsl:apply-templates select="parent::*"/>
+    <xsl:text> </xsl:text>
+    <xsl:apply-templates select="path"/>
+    <xsl:text> </xsl:text>
+    <xsl:apply-templates select="result/starttime"/>
+    <xsl:text> </xsl:text>
+    <xsl:apply-templates select="result/donetime"/>
+    <xsl:apply-templates select="parent::*/log"/>
+   </td>
+   <xsl:apply-templates select="result/retcode"/>
+   <xsl:apply-templates select="parent::*/author"/>
+   <td align="right">
+    <xsl:apply-templates select="image"/>
+    <br/>
+    <xsl:apply-templates select="result/buildhost"/>
+   </td>
+  </tr>
+ </xsl:template>
+
+ <xsl:template match="commit">
+  <a>
+   <xsl:attribute name="href">
+    /cgi-bin/viewvc.cgi?view=rev&amp;root=<xsl:value-of select="substring-after(repository,'/svn/')"/>&amp;revision=<xsl:value-of select="revision"/>
+   </xsl:attribute>
+   <img src="/images/viewvc.jpeg" style="vertical-align:bottom;" alt="ViewVC" height="10" width="26"/>
+  </a>
+  <b>
+   <a>
+    <xsl:attribute name="href">repos?<xsl:value-of select="repository"/></xsl:attribute>
+    <xsl:value-of select="substring-after(repository,'/svn/')"/>
+   </a>
+  </b>
+  <xsl:text> </xsl:text>
+  <a>
+   <xsl:attribute name="href">/websvn/listing.php?repname=<xsl:value-of select="substring-after(repository,'/svn/')"/>&amp;rev=<xsl:value-of select="revision"/>&amp;sc=1</xsl:attribute>
+   <xsl:value-of select="revision"/>
+  </a>
+ </xsl:template>
+
+</xsl:stylesheet>

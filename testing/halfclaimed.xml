@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<hephaestus>
+  <commit>
+    <repository>/svn/mahatma</repository>
+    <revision>2482</revision>
+    <schedtime>2007-04-26T01:23:19</schedtime>
+    <inreplyto>1419.462cdb34.23702@providence.research.sys</inreplyto>
+    <author>dank</author>
+    <build>
+      <path>/branches/compat4.10</path>
+      <image>4.10-RELEASE-p24</image>
+      <result>
+      	<buildhost>localhost</buildhost>
+    	<starttime>2007-04-26T01:23:44</starttime>
+      </result>
+    </build>
+    <build>
+      <path>/trunk</path>
+      <image>6.2-RELEASE-p3</image>
+    </build>
+  </commit>
+</hephaestus>

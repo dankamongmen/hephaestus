@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+. `printenv COMMON || echo /usr/local/etc/hephaestus/common` || exit 1
+
+usage () { echo "usage: $0 [xmlfile]" ; }
+usageerr () { usage >&2 ; return 1 ; }
+
+[ $# -lt 2 ] || usageerr
+[ $# -eq 1 ] || XMLIN="$ITINERARY"
+[ $# -eq 0 ] || XMLIN="$1"
+
+spin_on_dotlock "$XMLIN"
+
+# Validate the input. Trap any output to stdout, but leave stderr alone.
+"$XML" val -e -r "$SCHEMA_ITINERARY" "$XMLIN" > /dev/null
+
+# Translate the input, generating suitable XHTML.
+echo -e "Content-Type: text/html\n"
+"$XSLT" tr --xinclude "$XSLTDIR/`basename $0`-xslt.xml" "$XMLIN" | "$XML" unesc
+
+unlock_dotlock "$XMLIN"

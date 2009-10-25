@@ -1,5 +1,11 @@
-Hephaestus
-----------
+Check the wiki page:
+
+ http://wiki.research.sys/mediawiki/index.php/Hephaestus
+
+for a more general overview. Details will be included herein.
+
+Hephaestus Daemon
+-----------------
 
 Everything's kicked off by a post-checkin hook. Currently, we only support 
 centralized source control systems mapping transactions to ordinals, ie

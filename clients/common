@@ -1,0 +1,52 @@
+# to be sourced by bash 3.x shells
+set -e || { echo "Couldn't set -e" >&2 ; return 1 ; }
+set -o nounset || { echo "Couldn't set -o nounset" >&2 ; return 1 ; }
+set -o pipefail || { echo "Couldn't set -o pipefail" >&2 ; return 1 ; }
+
+umask 0002
+
+# After taking a lock, set LOCKED, so that it can be unlocked in exithandle();
+# reset after unlocking. This is handled for you by spin_on_dotlock() and
+# unlock_dotlock(), whose usage is advised. Usually one locks $ITINERARY.
+LOCKED=""
+
+printenv HEPHDIR > /dev/null || HEPHDIR=/usr/local/var/run/hephaestus
+ITINERARY=$HEPHDIR/itinerary.xml
+
+printenv XSLTDIR > /dev/null || XSLTDIR=/usr/local/share/xml/xslt
+printenv RNGDIR > /dev/null || RNGDIR=/usr/local/share/xml/schema
+SCHEMA_ITINERARY=$RNGDIR/hephaestus.rng
+
+DOTLOCK="`which lockfile`"
+XML="`which xmlstarlet`" || XML="`which xml`"
+XSLT="$XML"
+
+LOGFILE=$HEPHDIR/hephaestus.log
+
+exithandle () {
+	trap "" EXIT
+	[ -z "$LOCKED" ] || rm -f "$LOCKED.lock"
+}
+
+trap exithandle EXIT SIGINT SIGHUP
+
+spin_on_dotlock () {
+	[ $# -eq 1 ] || { echo "Usage error: set LOCKED, no params allowed" >&2 ; return 1 ; }
+	[ -z "$LOCKED" ] || { echo "Usage error: only one dotlock allowed" >&2 ; return 1 ; }
+	while "$DOTLOCK" -! -r0 "$1.lock" ; do
+		echo "Sleeping before reattempting lock" >&2
+		sleep $((RANDOM % 10 + 5)) || return 1
+	done
+	LOCKED="$1"
+}
+
+unlock_dotlock () {
+	[ $# -eq 1 ] || { echo "Usage error: set LOCKED, no params allowed" >&2 ; return 1 ; }
+	[ "$LOCKED" = "$1" ] || { echo "Usage error: $LOCKED != $1" >&2 ; return 1 ; }
+	rm -f "$1.lock"
+	LOCKED=""
+}
+
+export SNROOT=/usr/local/var/spool/news
+export PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+

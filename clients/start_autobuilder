@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+. common || exit 1
+
+usage () { echo "usage: $0 hostname" ; }
+
+usageerr () { usage >&2 ; return 1 ; }
+
+[ $# -eq 1 ] || usageerr
+
+VMUSER="hephaestus"
+HOST="$VMUSER@$1"
+HEPHDIR="\$HOME/tmp/"
+BRANCH="trunk"
+HEPHHOST="svn.research.sys"
+HEPHUSER="hephaestus"
+HEPHURI="svn+ssh://$HEPHUSER@$HEPHHOST/svn/hephaestus/$BRANCH"
+MAINURI="svn+ssh://$HEPHHOST"
+DAEMON="autobuilder"
+
+echo "Verifying login capability..."
+ssh -n "$HOST" true
+
+echo "Checking for an existing RSA key..."
+if ssh -n "$HOST" test -e .ssh/id_rsa ; then
+	echo "Private key already exists on $HOST, will not create one."
+	# FIXME kill any builder process running
+	echo "Syncing to $HEPHURI..."
+	ssh -n -A "$HOST" cd "$HEPHDIR$BRANCH" \&\& svn up
+else
+	echo "Setting the hostname..."
+	ssh -n "$HOST" sudo hostname "`echo $HOST | cut -d@ -f2-`"
+	echo "Creating a tmp directory..."
+	ssh "$HOST" mkdir -p -m 755 tmp
+	echo "Creating a .ssh directory..."
+	ssh "$HOST" mkdir -p -m 755 .ssh
+	echo "Generating initial .ssh/known_hosts..."
+	scp -B ../"$DAEMON"/known_hosts "$HOST:.ssh/"
+	echo "Linking .ssh/config..."
+	ssh -n "$HOST" ln -sf "$HEPHDIR$BRANCH/$DAEMON/ssh_config" .ssh/config
+	echo "Generating an RSA key..."
+	ssh -n "$HOST" ssh-keygen -t rsa -f .ssh/id_rsa
+	# FIXME remove old keys
+	# FIXME restrict keys to ip
+	echo "Acquiring public key..."
+	ssh -n "$HOST" cat .ssh/id_rsa.pub | ssh heph tee -a ~$HEPHUSER/.ssh/authorized_keys
+	echo "Checking out $HEPHURI..."
+	ssh -n -A "$HOST" cd "$HEPHDIR" \&\& svn co "$HEPHURI"
+	echo "Linking .ssh/known_hosts..."
+	ssh -n "$HOST" ln -sf "$HEPHDIR$BRANCH/$DAEMON/known_hosts" .ssh/known_hosts
+fi
+
+OS="`ssh -n \"$HOST\" uname`"
+if [ "$OS" = "Linux" ] ; then
+	DOPTS="--pidfiles $HEPHDIR --name $DAEMON"
+elif [ "$OS" = "FreeBSD" ] ; then
+	DOPTS="-p $HEPHDIR/pidlock"
+fi
+
+echo "Starting hephaestus..."
+exec ssh -oBatchMode=yes -T -f "$HOST" daemon "$DOPTS" "$HEPHDIR$BRANCH/$DAEMON/builder" "$HEPHDIR$BRANCH/$DAEMON" \$HOME/.ssh/id_rsa "$MAINURI" 2\>\&1

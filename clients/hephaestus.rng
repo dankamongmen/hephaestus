@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<grammar ns="" xmlns="http://relaxng.org/ns/structure/1.0"
+datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes"
+xmlns:xlink="http://www.w3.org/1999/xlink">
+ <start>
+  <element name="hephaestus">
+   <zeroOrMore><element name="commit">
+    <element name="repository"><text/></element>
+    <element name="revision">
+     <data type="integer"/>
+    </element>
+    <element name="schedtime">
+     <data type="dateTime"/>
+    </element>
+    <element name="inreplyto"><text/></element>
+    <element name="author"><text/></element>
+    <optional>
+     <element name="log"><text/></element>
+    </optional>
+    <oneOrMore><element name="build">
+     <element name="path"><text/></element>
+     <element name="image"><text/></element> 
+     <optional><element name="result">
+      <element name="buildhost"><text/></element>
+      <element name="starttime">
+       <data type="dateTime"/>
+      </element>
+      <optional>
+       <element name="donetime">
+        <data type="dateTime"/>
+       </element>
+       <element name="retcode">
+        <attribute name="xlink:show"/>
+        <attribute name="xlink:href"/>
+        <attribute name="xlink:type"/>
+        <data type="integer"/>
+       </element>
+      </optional>
+     </element></optional>
+    </element></oneOrMore>
+   </element></zeroOrMore>
+  </element>
+ </start>
+</grammar>

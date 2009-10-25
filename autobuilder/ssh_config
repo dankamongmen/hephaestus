@@ -1,0 +1,4 @@
+User hephaestus
+CheckHostIP no
+#HashKnownHosts no
+StrictHostKeyChecking yes

@@ -1,0 +1,6 @@
+6.4-RELEASE-p5-amd64,7.2-RELEASE-p3-amd64,2.6.30-2-686-i686,2.6.30-2-amd64-x86_64=portable
+6.4-RELEASE-p5-amd64,7.2-RELEASE-p3-amd64=fbsdall
+2.6.30-2-686-i686,2.6.30-2-amd64-x86_64=linuxall
+7.2-RELEASE-p3-amd64=trunk
+2.6.30-2-686-i686=linux32
+2.6.30-2-amd64-x86_64=linux64

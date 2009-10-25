@@ -1,0 +1,14 @@
+<domain type='kvm' id='2'>
+	<name>flarli</name>
+        <memory>1073741824</memory>
+	<vcpu>2</vcpu>
+	<os>
+		<type arch='i686'>hvm</type>
+		<boot dev='hd'/>
+	</os>
+	<devices>
+		<console type='null'>
+			<target port='1'/>
+		</console>
+	</devices>
+</domain>

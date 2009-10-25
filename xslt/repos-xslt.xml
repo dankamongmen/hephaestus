@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<xsl:stylesheet version="1.0"
+ xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:fn="http://www.w3.org/2005/xpath-functions"
+ xmlns="http://www.w3.org/1999/xhtml">
+
+ <xsl:include href="build-xslt.xml"/>
+
+ <!-- xsl:variable name="repofilter" select="'hephaestus'"/-->
+
+ <xsl:template match="hephaestus">
+  <xsl:variable name="buildcount" select="count(commit[repository=$repofilter]/build)"/>
+  <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+   <head><title>Hephaestus autobuilder - User <xsl:value-of select="$repofilter"/></title></head>
+   <body>
+     <table summary="Current, pending and completed jobs for the user $repofilter" bgcolor="black">
+     <tr>
+      <td colspan="4">
+       <xsl:call-template name="pageheader"/>
+      </td>
+     </tr>
+     <tr>
+      <th colspan="2" align="left">
+       <span style="color: green">
+        <xsl:value-of select="$repofilter"/>'s running jobs (<xsl:value-of select="count(commit[repository=$repofilter]/build/result[not(retcode)])"/>/<xsl:value-of select="$buildcount"/>)
+       </span>
+      </th>
+      <th align="right"> <span style="color: green"> author </span> </th>
+      <th align="right"> <span style="color: green"> buildenv </span> </th>
+     </tr>
+     <xsl:for-each select="commit[repository=$repofilter]/build">
+      <xsl:sort select="result/starttime" order="descending"/>
+      <xsl:if test="result[not(retcode)]">
+       <xsl:apply-templates select="."/>
+      </xsl:if>
+     </xsl:for-each>
+     <xsl:call-template name="sectionbreak"/>
+     <tr>
+      <th colspan="2" align="left">
+       <span style="color: green">
+        <xsl:value-of select="$repofilter"/>'s pending jobs (<xsl:value-of select="count(commit[repository=$repofilter]/build[not(result)])"/>/<xsl:value-of select="$buildcount"/>)
+       </span>
+      </th>
+      <th align="right"> <span style="color: green"> author </span> </th>
+      <th align="right"> <span style="color: green"> buildenv </span> </th>
+     </tr>
+     <xsl:for-each select="commit[repository=$repofilter]/build">
+      <xsl:if test="not(result)">
+       <xsl:apply-templates select="."/>
+      </xsl:if>
+     </xsl:for-each>
+     <xsl:call-template name="sectionbreak"/>
+     <tr>
+      <th align="left">
+       <span style="color: green">
+        <xsl:value-of select="$repofilter"/>'s completed jobs (<xsl:value-of select="count(commit[repository=$repofilter]/build/result/retcode)"/>/<xsl:value-of select="$buildcount"/>)
+       </span>
+      </th>
+      <th align="right"> <span style="color: green"> results </span> </th>
+      <th align="right"> <span style="color: green"> author </span> </th>
+      <th align="right"> <span style="color: green"> buildenv </span> </th>
+     </tr>
+     <xsl:for-each select="commit[repository=$repofilter]/build">
+      <xsl:sort select="result/donetime" order="descending"/>
+      <xsl:if test="result/retcode">
+       <xsl:apply-templates select="."/>
+      </xsl:if>
+     </xsl:for-each>
+     <xsl:call-template name="sectionbreak"/>
+    </table>
+   </body>
+  </html>
+ </xsl:template>
+
+</xsl:stylesheet>

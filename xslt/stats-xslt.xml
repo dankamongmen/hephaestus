@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<xsl:stylesheet version="1.0"
+ xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:fn="http://www.w3.org/2005/xpath-functions"
+ xmlns="http://www.w3.org/1999/xhtml">
+
+ <xsl:include href="build-xslt.xml"/>
+
+ <xsl:template match="hephaestus">
+  <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+   <head><title>Hephaestus autobuilder - Statistics</title></head>
+   <body>
+     <table summary="Statistics" bgcolor="black">
+     <tr>
+      <td colspan="3">
+       <xsl:call-template name="pageheader"/>
+      </td>
+     </tr>
+     <tr>
+      <th colspan="2" align="left">
+       <span style="color: green">
+        projects (FIXME: insert project count)
+       </span>
+      </th>
+      <th align="right"> <span style="color: green"> builds </span> </th>
+     </tr>
+     <xsl:call-template name="sectionbreak"/>
+    </table>
+   </body>
+  </html>
+ </xsl:template>
+
+</xsl:stylesheet>
