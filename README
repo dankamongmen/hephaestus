@@ -1,0 +1,33 @@
+Check the wiki page:
+
+ http://wiki.research.sys/mediawiki/index.php/Hephaestus
+
+for a more general overview. Details will be included herein.
+
+Hephaestus Daemon
+-----------------
+
+Everything's kicked off by a post-checkin hook. Currently, we only support 
+centralized source control systems mapping transactions to ordinals, ie
+Subversion. The post-checkin hook can be found in the svnhooks repository.
+It calls schedule_build with the repository and revision as arguments -- this
+operation doesn't lock against hephaestus, nor does it perform any meaningful
+I/O or computation, so commits aren't made any more latent.
+
+Within the hephaestus working directory, there's a commits/ directory,
+containing a subdirectory per repository. schedule_build creates an empty file
+in the appropriate directory, using the revision number for its name (thus
+avoiding the need to lock in hook context). If hephaestus is down, these
+build requests will simply accumulate, to be run in batch when it comes up and
+claims them. At some point, a hephaestus process running on some machine
+(usually locally, but an sshfs would work just fine) will begin watching this
+commits/ directory.
+
+When hephaestus notices build requests, it serially iterates over them,
+converting them to an XML representation (see the Relax-NG schema at
+hephaestus.rng) and appending these entities to the itinerary file. This
+itinerary should always validate successfully against the Relax-NG schema. In
+addition, hephaestus generates a commit notification for each revision,
+containing the svn diff output and links to WebSVN/ViewVC; these are posted to
+the appropriate newsgroup, and the Message-ID of the commit notification is
+saved in XML for automated followups.
